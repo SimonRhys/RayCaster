@@ -6,6 +6,7 @@
 #include <GL/glew.h>
 
 // GLFW
+#define GLM_FORCE_RADIANS
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -17,6 +18,7 @@
 #define PI 3.14159265358979323846
 
 bool KEYS[1024];
+float AVG_DT = 0;
 
 GLuint createFramebufferTexture(GLuint width, GLuint height)
 {
@@ -138,52 +140,46 @@ glm::mat4 handleControls(glm::vec3 *pos, float *currentAngle, glm::mat4 projecti
 {
 
 	const float SPEED = 10;
-	const float ROTATE_SPEED = 10;
+	const float ROTATE_SPEED = 1;
 	bool viewChanged = false;
 
+	if (KEYS[GLFW_KEY_F])
+	{
+		std::cout << "Delta Time: " << AVG_DT*1000 << "ms" << std::endl;
+		KEYS[GLFW_KEY_F] = false;
+	}
+
 	if (KEYS[GLFW_KEY_W])
-	{
-		viewChanged = true;
-
-		pos->x += SPEED*dt*sin(*currentAngle + PI);
-		pos->z += SPEED*dt*cos(*currentAngle + PI);
-	}
-	else if (KEYS[GLFW_KEY_S])
-	{
-		viewChanged = true;
-
-		pos->x += -SPEED*dt*sin(*currentAngle + PI);
-		pos->z += -SPEED*dt*cos(*currentAngle + PI);
-	}
-
-	if (KEYS[GLFW_KEY_A])
-	{
-		viewChanged = true;
-
-		pos->x += SPEED*dt*sin(*currentAngle);
-		pos->z += SPEED*dt*cos(*currentAngle);
-	}
-	else if (KEYS[GLFW_KEY_D])
 	{
 		viewChanged = true;
 
 		pos->x += -SPEED*dt*sin(*currentAngle);
 		pos->z += -SPEED*dt*cos(*currentAngle);
 	}
-
-	if (KEYS[GLFW_KEY_LEFT])
+	else if (KEYS[GLFW_KEY_S])
 	{
 		viewChanged = true;
 
-		float angle = -PI*ROTATE_SPEED*dt;
-		*currentAngle += angle;
-
-		if (*currentAngle >= 2 * PI || *currentAngle <= -2 * PI)
-		{
-			//*currentAngle = 0;
-		}
+		pos->x += SPEED*dt*sin(*currentAngle);
+		pos->z += SPEED*dt*cos(*currentAngle);
 	}
-	else if (KEYS[GLFW_KEY_RIGHT])
+
+	if (KEYS[GLFW_KEY_A])
+	{
+		viewChanged = true;
+
+		pos->x += -SPEED*dt*sin(*currentAngle + PI/2);
+		pos->z += -SPEED*dt*cos(*currentAngle + PI/2);
+	}
+	else if (KEYS[GLFW_KEY_D])
+	{
+		viewChanged = true;
+
+		pos->x += SPEED*dt*sin(*currentAngle + PI/2);
+		pos->z += SPEED*dt*cos(*currentAngle + PI/2);
+	}
+
+	if (KEYS[GLFW_KEY_LEFT])
 	{
 		viewChanged = true;
 
@@ -192,7 +188,19 @@ glm::mat4 handleControls(glm::vec3 *pos, float *currentAngle, glm::mat4 projecti
 
 		if (*currentAngle >= 2 * PI || *currentAngle <= -2 * PI)
 		{
-			//*currentAngle = 0;
+			*currentAngle = 0;
+		}
+	}
+	else if (KEYS[GLFW_KEY_RIGHT])
+	{
+		viewChanged = true;
+
+		float angle = -PI*ROTATE_SPEED*dt;
+		*currentAngle += angle;
+
+		if (*currentAngle >= 2 * PI || *currentAngle <= -2 * PI)
+		{
+			*currentAngle = 0;
 		}
 	}
 
@@ -211,8 +219,8 @@ glm::mat4 handleControls(glm::vec3 *pos, float *currentAngle, glm::mat4 projecti
 
 	if (viewChanged)
 	{
-		glm::mat4 rotation = glm::rotate(glm::mat4(1.0), *currentAngle, glm::vec3(0, 1, 0));
-		glm::mat4 translation = glm::translate(glm::mat4(1.0), *pos);
+		glm::mat4 rotation = glm::rotate(glm::mat4(1.0), -*currentAngle, glm::vec3(0, 1, 0));
+		glm::mat4 translation = glm::translate(glm::mat4(1.0), -*pos);
 		glm::mat4 view = rotation * translation;
 		return projection * view;
 	}
@@ -312,9 +320,9 @@ int main()
 	glm::vec3 camera = glm::vec3(3.0f, 2.0f, 7.0f);
 	float currentAngle = glm::radians(23.f);
 
-	glm::mat4 projection = glm::perspective(60.0f, (float)WIDTH / HEIGHT, 1.f, 2.f);
+	glm::mat4 projection = glm::perspective(glm::radians(60.0f), (float)WIDTH / HEIGHT, 1.f, 2.f);
 	glm::mat4 t = glm::translate(glm::mat4(1.0f), -camera);
-	glm::mat4 r = glm::rotate(glm::mat4(1.0f), currentAngle, glm::vec3(0, 1, 0));
+	glm::mat4 r = glm::rotate(glm::mat4(1.0f), -currentAngle, glm::vec3(0, 1, 0));
 	glm::mat4 view = r * t;
 	glm::mat4 VP = projection * view;
 
@@ -326,6 +334,10 @@ int main()
 
 	GLfloat lastFrame = glfwGetTime();
 	GLfloat dt = glfwGetTime();
+
+	float totalDT = 0;
+	int frameNum = 0;
+
 	// Game loop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -333,6 +345,16 @@ int main()
 		GLfloat currentFrame = glfwGetTime();
 		dt = currentFrame - lastFrame;
 		lastFrame = currentFrame;
+
+		totalDT += dt;
+		frameNum++;
+
+		if (frameNum == 100)
+		{
+			AVG_DT = totalDT / 100;
+			frameNum = 0;
+			totalDT = 0;
+		}
 
 		// Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
 		glfwPollEvents();
