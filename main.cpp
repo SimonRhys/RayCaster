@@ -32,28 +32,6 @@ GLuint createFramebufferTexture(GLuint width, GLuint height)
 	return tex;
 }
 
-
-/**
-* Create the frame buffer object that our ray tracing shader uses to render
-* into the framebuffer texture.
-*
-* @return the FBO id
-*/
-GLuint createFrameBufferObject(GLuint tex)
-{
-	GLuint fbo;
-	glGenFramebuffers(1, &fbo);
-	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
-	int fboStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if (fboStatus != GL_FRAMEBUFFER_COMPLETE)
-	{
-		std::cout << "Could not create FBO: " + fboStatus << std::endl;
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	return fbo;
-}
-
 /**
 * Creates a VAO with a full-screen quad VBO.
 */
@@ -208,13 +186,13 @@ glm::mat4 handleControls(glm::vec3 *pos, float *currentAngle, glm::mat4 projecti
 	{
 		viewChanged = true;
 
-		pos->y -= SPEED*dt;
+		pos->y += SPEED*dt;
 	}
 	else if (KEYS[GLFW_KEY_LEFT_SHIFT])
 	{
 		viewChanged = true;
 
-		pos->y += SPEED*dt;
+		pos->y -= SPEED*dt;
 	}
 
 	if (viewChanged)
