@@ -19,8 +19,7 @@ class Quadtree
 	protected:
 
 
-		bool children;
-		bool empty;
+		bool leaf;
 
 		glm::vec2 centre;
 		glm::vec2 size;
