@@ -14,6 +14,15 @@ class Quadtree
 
 		bool insert(glm::vec2 p);
 		bool inBoundry(glm::vec2 p);
+		bool inBoundry(glm::vec2 p, glm::vec2 c, glm::vec2 s);
+		bool boundryIntersect(glm::vec2 c1, glm::vec2 s1, glm::vec2 c2, glm::vec2 s2);
+		bool search(glm::vec2 p);
+		
+		std::vector<glm::vec2> search(glm::vec2 c, glm::vec2 s);
+
+		glm::vec2 getCentre();
+		glm::vec2 getSize();
+
 		void subdivide();
 
 	protected:

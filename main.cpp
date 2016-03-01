@@ -14,6 +14,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "Shader.h"
+#include "Quadtree.h"
 
 #define PI 3.14159265358979323846
 
@@ -223,6 +224,26 @@ void printMatrix(glm::mat4 m)
 // The MAIN function, from here we start the application and run the game loop
 int main()
 {
+	//TESTING - REMOVE
+	Quadtree root(glm::vec2(50, 50), glm::vec2(100, 100));
+	std::cout << root.insert(glm::vec2(10, 10)) << std::endl;
+	std::cout << root.insert(glm::vec2(90, 10)) << std::endl;
+	std::cout << root.insert(glm::vec2(10, 90)) << std::endl;
+	std::cout << root.insert(glm::vec2(50, 90)) << std::endl;
+	std::cout << root.insert(glm::vec2(10, 60)) << std::endl;
+
+	std::cout << root.search(glm::vec2(10, 10)) << std::endl;
+	std::cout << root.search(glm::vec2(34, 54)) << std::endl;
+	std::cout << root.search(glm::vec2(50, 90)) << std::endl;
+	std::cout << root.search(glm::vec2(10, 60)) << std::endl;
+
+	std::vector<glm::vec2> res = root.search(glm::vec2(50, 50), glm::vec2(100, 100));
+
+	for (int i = 0; i < res.size(); i++)
+	{
+		std::cout << "x = " << res[i].x << " y = " << res[i].y << std::endl;
+	}
+
 	// Window dimensions
 	const GLuint WIDTH = 1024, HEIGHT = 768;
 
