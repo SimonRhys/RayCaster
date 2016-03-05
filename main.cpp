@@ -18,8 +18,40 @@
 
 #define PI 3.14159265358979323846
 
+struct box {
+	glm::vec4 boxMin;
+	glm::vec4 boxMax;
+};
+
 bool KEYS[1024];
 float AVG_DT = 0;
+bool TESTING = true;
+
+box* generateTestData(int numBoxes)
+{
+
+	box *boxes = new box[numBoxes];
+	float nearestSqrt = sqrt(numBoxes);
+	nearestSqrt = (int)nearestSqrt;
+	nearestSqrt++;
+
+	int count = 0;
+
+	for (int i = 0; i < nearestSqrt; i++)
+	{
+		for (int j = 0; j < nearestSqrt; j++)
+		{
+			boxes[count++] = { glm::vec4(-0.5 + i, -0.5, -0.5 + j, 1), glm::vec4(0.5 + i, 0.5, 0.5 + j, 1) };
+
+			if (count == numBoxes)
+			{
+				return boxes;
+			}
+		}
+	}
+	
+	return boxes;
+}
 
 GLuint createFramebufferTexture(GLuint width, GLuint height)
 {
@@ -224,25 +256,6 @@ void printMatrix(glm::mat4 m)
 // The MAIN function, from here we start the application and run the game loop
 int main()
 {
-	//TESTING - REMOVE
-	Quadtree root(glm::vec2(50, 50), glm::vec2(100, 100));
-	std::cout << root.insert(glm::vec2(10, 10)) << std::endl;
-	std::cout << root.insert(glm::vec2(90, 10)) << std::endl;
-	std::cout << root.insert(glm::vec2(10, 90)) << std::endl;
-	std::cout << root.insert(glm::vec2(50, 90)) << std::endl;
-	std::cout << root.insert(glm::vec2(10, 60)) << std::endl;
-
-	std::cout << root.search(glm::vec2(10, 10)) << std::endl;
-	std::cout << root.search(glm::vec2(34, 54)) << std::endl;
-	std::cout << root.search(glm::vec2(50, 90)) << std::endl;
-	std::cout << root.search(glm::vec2(10, 60)) << std::endl;
-
-	std::vector<glm::vec2> res = root.search(glm::vec2(50, 50), glm::vec2(100, 100));
-
-	for (int i = 0; i < res.size(); i++)
-	{
-		std::cout << "x = " << res[i].x << " y = " << res[i].y << std::endl;
-	}
 
 	// Window dimensions
 	const GLuint WIDTH = 1024, HEIGHT = 768;
@@ -298,6 +311,48 @@ int main()
 	GLuint ray10Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray10");
 	GLuint ray01Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray01");
 	GLuint ray11Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray11");
+	GLuint numBoxesUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_BOXES");
+
+	int NUM_BOXES = 1;
+
+	box *boxes = new box[NUM_BOXES];
+
+	for (int i = 0; i < NUM_BOXES; i++)
+	{
+		boxes[i] = { glm::vec4(-5.0, -0.1 + i, -5.0, 1), glm::vec4(5.0, 0.0 + i, 5.0, 1) };
+	}
+
+	if (TESTING)
+	{
+		NUM_BOXES = 1;
+		delete[] boxes;
+		boxes = generateTestData(NUM_BOXES);
+	}
+	
+
+
+
+	GLuint ssbo;
+	glGenBuffers(1, &ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(box)*NUM_BOXES, &boxes[0], GL_STATIC_COPY);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+	GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+	memcpy(p, &boxes[0], sizeof(box)*NUM_BOXES);
+	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+	GLuint block_index;
+	block_index = glGetProgramResourceIndex(computeProgram.getShaderProgram(), GL_SHADER_STORAGE_BLOCK, "boxes");
+
+	GLuint ssbo_binding_point_index = 10;
+	glShaderStorageBlockBinding(computeProgram.getShaderProgram(), block_index, ssbo_binding_point_index);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding_point_index, ssbo);
+
+	GLuint binding_point_index = 80;
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_point_index, ssbo);
+
 	glUseProgram(0);
 
 	//Setup drawing program
@@ -353,6 +408,31 @@ int main()
 			AVG_DT = totalDT / 100;
 			frameNum = 0;
 			totalDT = 0;
+			
+			if (TESTING)
+			{
+				NUM_BOXES++;
+				delete[] boxes;
+				boxes = generateTestData(NUM_BOXES);
+
+				glUseProgram(computeProgram.getShaderProgram());
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+				glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(box)*NUM_BOXES, &boxes[0], GL_STATIC_COPY);
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+				p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+				memcpy(p, &boxes[0], sizeof(box)*NUM_BOXES);
+				glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+				glUseProgram(0);
+
+				float fps = 1 / AVG_DT;
+				std::cout << NUM_BOXES << " boxes at " << fps << " fps" << std::endl;	
+				if (fps <= 1)
+				{
+					glfwSetWindowShouldClose(window, 10);
+				}
+			}
 		}
 
 		// Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
@@ -393,6 +473,8 @@ int main()
 		eyeRay = calculateEyeRay(glm::vec4(1, 1, 0, 1), camera, inverseVP);
 		glUniform3f(ray11Uniform, eyeRay.x, eyeRay.y, eyeRay.z);
 
+		glUniform1i(numBoxesUniform, NUM_BOXES);
+
 		/* Bind level 0 of framebuffer texture as writable image in the shader. */
 		glBindImageTexture(0, tex, 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
@@ -427,5 +509,6 @@ int main()
 	glDeleteVertexArrays(1, &vao);
 	// Terminate GLFW, clearing any resources allocated by GLFW.
 	glfwTerminate();
+	delete[] boxes;
 	return 0;
 }
