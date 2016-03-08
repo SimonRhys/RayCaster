@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <math.h> 
 
 // GLEW
@@ -26,6 +27,7 @@ struct box {
 bool KEYS[1024];
 float AVG_DT = 0;
 bool TESTING = true;
+std::ofstream OUTPUT_FILE;
 
 box* generateTestData(int numBoxes)
 {
@@ -256,6 +258,10 @@ void printMatrix(glm::mat4 m)
 // The MAIN function, from here we start the application and run the game loop
 int main()
 {
+	if (TESTING)
+	{
+		OUTPUT_FILE.open("output.csv");
+	}
 
 	// Window dimensions
 	const GLuint WIDTH = 1024, HEIGHT = 768;
@@ -427,7 +433,8 @@ int main()
 				glUseProgram(0);
 
 				float fps = 1 / AVG_DT;
-				std::cout << NUM_BOXES << " boxes at " << fps << " fps" << std::endl;	
+				std::cout << NUM_BOXES << " boxes at " << fps << " fps" << std::endl;
+				OUTPUT_FILE << fps << ", " << NUM_BOXES << "\n";
 				if (fps <= 1)
 				{
 					glfwSetWindowShouldClose(window, 10);
@@ -510,5 +517,10 @@ int main()
 	// Terminate GLFW, clearing any resources allocated by GLFW.
 	glfwTerminate();
 	delete[] boxes;
+
+	if (TESTING)
+	{
+		OUTPUT_FILE.close();
+	}
 	return 0;
 }
