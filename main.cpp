@@ -435,9 +435,9 @@ int main()
 				float fps = 1 / AVG_DT;
 				std::cout << NUM_BOXES << " boxes at " << fps << " fps" << std::endl;
 				OUTPUT_FILE << fps << ", " << NUM_BOXES << "\n";
-				if (fps <= 1)
+				if (fps <= 10)
 				{
-					glfwSetWindowShouldClose(window, 10);
+					glfwSetWindowShouldClose(window, 1);
 				}
 			}
 		}
