@@ -8,6 +8,8 @@ struct box {
 
 struct hitinfo {
   vec2 lambda;
+  vec3 boxMin;
+  vec3 boxMax;
   int bi;
 };
 
@@ -41,6 +43,8 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info) {
     if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest) {
       info.lambda = lambda;
       info.bi = i;
+	  info.boxMin = data[i].min;
+	  info.boxMax = data[i].max;
       smallest = lambda.x;
       found = true;
     }
@@ -51,8 +55,17 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info) {
 vec4 trace(vec3 origin, vec3 dir) {
   hitinfo i;
   if (intersectBoxes(origin, dir, i)) {
-    vec4 gray = vec4(i.bi / 10.0 + 0.8);
-    return vec4(1, 1, 1, 1);
+	vec3 intersect = origin + dir * i.lambda.x;
+	vec3 result = abs(i.boxMax - intersect);
+	if(result.y < result.x && result.y < result.z)
+	{
+		return vec4(1, 0, 0, 1);
+	}
+	else
+	{
+		return vec4(1, 1, 1, 1);
+	}
+    
   }
   return vec4(0.0, 0.0, 0.0, 1.0);
 }

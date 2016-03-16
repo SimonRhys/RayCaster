@@ -26,7 +26,7 @@ struct box {
 
 bool KEYS[1024];
 float AVG_DT = 0;
-bool TESTING = true;
+bool TESTING = false;
 std::ofstream OUTPUT_FILE;
 
 box* generateTestData(int numBoxes)
@@ -255,9 +255,38 @@ void printMatrix(glm::mat4 m)
 	}
 }
 
+glm::vec3 getBoxCentre(box b)
+{
+	glm::vec4 diff = b.boxMax - b.boxMin;
+	glm::vec3 result = glm::vec3(diff.x, diff.y, diff.z);
+
+	return result;
+}
+
 // The MAIN function, from here we start the application and run the game loop
 int main()
 {
+
+	//TESTING REMOVE
+	/*Quadtree<box> root(glm::vec2(50, 50), glm::vec2(100, 100));
+	
+	box *testBoxes = new box[5];
+	testBoxes = generateTestData(5);
+	
+	for (int i = 0; i < 5; i++)
+	{
+		glm::vec3 cent = getBoxCentre(testBoxes[i]);
+		std::cout << root.insert(testBoxes[i], glm::vec2(cent.x, cent.z)) << std::endl;
+	}
+	
+	std::vector<box> res = root.search(glm::vec2(50, 50), glm::vec2(100, 100));
+	
+	std::cout << "FOUND " << res.size() << " BOXES: " << std::endl;
+	for (int i = 0; i < res.size(); i++)
+	{
+		std::cout << "x = " << testBoxes[i].boxMin.y << " y = " << testBoxes[i].boxMax.z << std::endl;
+	}*/
+
 	if (TESTING)
 	{
 		OUTPUT_FILE.open("output.csv");
@@ -335,9 +364,6 @@ int main()
 		boxes = generateTestData(NUM_BOXES);
 	}
 	
-
-
-
 	GLuint ssbo;
 	glGenBuffers(1, &ssbo);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
@@ -385,12 +411,6 @@ int main()
 	glm::mat4 r = glm::rotate(glm::mat4(1.0f), -currentAngle, glm::vec3(0, 1, 0));
 	glm::mat4 view = r * t;
 	glm::mat4 VP = projection * view;
-
-	//printMatrix(r * t);
-	//std::cout << std::endl;
-	//printMatrix(view);
-
-
 
 	GLfloat lastFrame = glfwGetTime();
 	GLfloat dt = glfwGetTime();
@@ -450,13 +470,6 @@ int main()
 		// Clear the colorbuffer
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
-
-		/*currentAngle += glm::radians(1.f);
-
-		t = glm::translate(glm::mat4(1.0f), -camera);
-		r = glm::rotate(glm::mat4(1.0f), currentAngle, glm::vec3(0, 1, 0));
-		view = r * t;
-		VP = projection * view;*/
 
 		VP = handleControls(&camera, &currentAngle, projection, VP, dt);
 
