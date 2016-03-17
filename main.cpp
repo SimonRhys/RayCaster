@@ -346,6 +346,7 @@ int main()
 	GLuint ray10Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray10");
 	GLuint ray01Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray01");
 	GLuint ray11Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray11");
+	GLuint lightPosUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "lightPos");
 	GLuint numBoxesUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_BOXES");
 
 	int NUM_BOXES = 1;
@@ -492,6 +493,8 @@ int main()
 
 		eyeRay = calculateEyeRay(glm::vec4(1, 1, 0, 1), camera, inverseVP);
 		glUniform3f(ray11Uniform, eyeRay.x, eyeRay.y, eyeRay.z);
+
+		glUniform3f(lightPosUniform, 5, 5, 5);
 
 		glUniform1i(numBoxesUniform, NUM_BOXES);
 
