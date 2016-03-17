@@ -32,6 +32,9 @@ layout(binding = 0, rgba32f) uniform image2D framebuffer;
 layout(std430) buffer boxes {
 	 box data[];
 };
+layout(std430) buffer triangles {
+	Tri triData;
+};
 
 float triEdgeCheck(vec3 v1, vec3 v2, vec3 plane, vec3 norm)
 {
@@ -115,7 +118,8 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info) {
 }
 vec4 trace(vec3 origin, vec3 dir) {
 	hitinfo i;
-	if (intersectBoxes(origin, dir, i)) {
+	if (intersectBoxes(origin, dir, i)) 
+	{
 		vec3 intersect = origin + dir * i.lambda.x;
 		vec3 minResult = abs(i.boxMin - intersect);
 		vec3 maxResult = abs(i.boxMax - intersect);
@@ -167,6 +171,12 @@ vec4 trace(vec3 origin, vec3 dir) {
 		return colour;
     
 	}
+
+	if(intersectTri(origin, dir, triData))
+	{
+		return vec4(0, 0, 1, 1);
+	}
+
 	return vec4(0.0, 0.0, 0.0, 1.0);
 }
 

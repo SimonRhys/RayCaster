@@ -24,6 +24,13 @@ struct box {
 	glm::vec4 boxMax;
 };
 
+struct Tri {
+	glm::vec4 p1;
+	glm::vec4 p2;
+	glm::vec4 p3;
+	glm::vec4 norm;
+};
+
 bool KEYS[1024];
 float AVG_DT = 0;
 bool TESTING = false;
@@ -365,26 +372,42 @@ int main()
 		boxes = generateTestData(NUM_BOXES);
 	}
 	
-	GLuint ssbo;
-	glGenBuffers(1, &ssbo);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+	//Setup Cube Shader Buffer
+	GLuint cubeShaderBuffer;
+	glGenBuffers(1, &cubeShaderBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
 	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(box)*NUM_BOXES, &boxes[0], GL_STATIC_COPY);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
 	GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
 	memcpy(p, &boxes[0], sizeof(box)*NUM_BOXES);
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
-	GLuint block_index;
-	block_index = glGetProgramResourceIndex(computeProgram.getShaderProgram(), GL_SHADER_STORAGE_BLOCK, "boxes");
+	GLuint blockIndex;
+	blockIndex = glGetProgramResourceIndex(computeProgram.getShaderProgram(), GL_SHADER_STORAGE_BLOCK, "boxes");
+	glShaderStorageBlockBinding(computeProgram.getShaderProgram(), blockIndex, 2);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, cubeShaderBuffer);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, cubeShaderBuffer);
 
-	GLuint ssbo_binding_point_index = 10;
-	glShaderStorageBlockBinding(computeProgram.getShaderProgram(), block_index, ssbo_binding_point_index);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding_point_index, ssbo);
+	Tri tri = {glm::vec4(-1, -1, 0, 1), glm::vec4(1, -1, 0, 1), glm::vec4(0, 1, 0, 1), glm::vec4(0, 0, 1, 1)};
 
-	GLuint binding_point_index = 80;
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding_point_index, ssbo);
+	//Setup Triangle Shader Buffer
+	GLuint triShaderBuffer;
+	glGenBuffers(1, &triShaderBuffer);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triShaderBuffer);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Tri), &tri, GL_STATIC_COPY);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triShaderBuffer);
+	p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+	memcpy(p, &tri, sizeof(Tri));
+	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+	blockIndex = glGetProgramResourceIndex(computeProgram.getShaderProgram(), GL_SHADER_STORAGE_BLOCK, "triangles");
+	glShaderStorageBlockBinding(computeProgram.getShaderProgram(), blockIndex, 3);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, triShaderBuffer);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, triShaderBuffer);
 
 	glUseProgram(0);
 
@@ -443,11 +466,11 @@ int main()
 				boxes = generateTestData(NUM_BOXES);
 
 				glUseProgram(computeProgram.getShaderProgram());
-				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
 				glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(box)*NUM_BOXES, &boxes[0], GL_STATIC_COPY);
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-				glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+				glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
 				p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
 				memcpy(p, &boxes[0], sizeof(box)*NUM_BOXES);
 				glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
