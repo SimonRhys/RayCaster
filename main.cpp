@@ -14,6 +14,11 @@
 #include <glm/gtx/transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+//ASSIMP
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+
 #include "Shader.h"
 #include "Quadtree.h"
 
@@ -25,9 +30,9 @@ struct box {
 };
 
 struct Tri {
+	glm::vec4 p0;
 	glm::vec4 p1;
 	glm::vec4 p2;
-	glm::vec4 p3;
 	glm::vec4 norm;
 };
 
@@ -270,9 +275,89 @@ glm::vec3 getBoxCentre(box b)
 	return result;
 }
 
+void processMesh(aiMesh* mesh, std::vector<Tri> *meshTris)
+{
+	for (int i = 0; i < mesh->mNumFaces; i++)
+	{
+		aiFace face = mesh->mFaces[i];
+		for (int j = 0; j < face.mNumIndices; j+=3)
+		{
+			glm::vec4 vec0;
+			glm::vec4 vec1;
+			glm::vec4 vec2;
+			glm::vec4 norm = glm::vec4(0, 0, 0, 0);
+
+			vec0.x = mesh->mVertices[face.mIndices[j]].x;
+			vec0.y = mesh->mVertices[face.mIndices[j]].y;
+			vec0.z = mesh->mVertices[face.mIndices[j]].z;
+
+			vec1.x = mesh->mVertices[face.mIndices[j+1]].x;
+			vec1.y = mesh->mVertices[face.mIndices[j+1]].y;
+			vec1.z = mesh->mVertices[face.mIndices[j+1]].z;
+
+			vec2.x = mesh->mVertices[face.mIndices[j+2]].x;
+			vec2.y = mesh->mVertices[face.mIndices[j+2]].y;
+			vec2.z = mesh->mVertices[face.mIndices[j+2]].z;
+
+			meshTris->push_back({vec0, vec1, vec2, norm});
+		}
+	}
+}
+
+void processModel(const aiScene* scene, aiNode* node, std::vector<Tri> *meshTris)
+{
+	for (int i = 0; i < node->mNumMeshes; i++)
+	{
+		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+		processMesh(mesh, meshTris);
+	}
+
+	for (int i = 0; i < node->mNumChildren; i++)
+	{
+		processModel(scene, node->mChildren[i], meshTris);
+	}
+}
+
 // The MAIN function, from here we start the application and run the game loop
 int main()
 {
+
+	Assimp::Importer importer;
+	const aiScene* objectModel = importer.ReadFile("obj_files/MaleLow.obj", aiProcess_Triangulate);
+
+	if (!objectModel || objectModel->mFlags == AI_SCENE_FLAGS_INCOMPLETE || !objectModel->mRootNode)
+	{
+		std::cout << "FAILED TO LOAD MODEL" << std::endl;
+		std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
+		return 0;
+	}
+
+	std::vector<Tri> meshTris;
+	processModel(objectModel, objectModel->mRootNode, &meshTris);
+
+	if (meshTris.size() < 100)
+	{
+		for (int i = 0; i < meshTris.size(); i++)
+		{
+			glm::vec4 p0 = meshTris[i].p0;
+			glm::vec4 p1 = meshTris[i].p1;
+			glm::vec4 p2 = meshTris[i].p2;
+
+			std::cout << "X = " << p0.x << " Y = " << p0.y << " Z = " << p0.z << std::endl;
+			std::cout << "X = " << p1.x << " Y = " << p1.y << " Z = " << p1.z << std::endl;
+			std::cout << "X = " << p2.x << " Y = " << p2.y << " Z = " << p2.z << std::endl << std::endl;
+
+		}
+	}
+
+
+	//meshTris.clear();
+
+	//meshTris.push_back({ glm::vec4(-1, -1, 1, 1), glm::vec4(1, 1, 1, 1), glm::vec4(-1, 1, 1, 1), glm::vec4(0, 0, 1, 1) });
+	//meshTris.push_back({ glm::vec4(-1, -1, 1, 1), glm::vec4(1, -1, 1, 1), glm::vec4(1, 1, 1, 1), glm::vec4(0, 0, 1, 1) });
+
+	//meshTris.push_back({ glm::vec4(-1, 1, 1, 1), glm::vec4(1, 1, 1, 1), glm::vec4(-1, -1, 1, 1), glm::vec4(0, 0, 1, 1) });
+	//meshTris.push_back({ glm::vec4(1, -1, 1, 1), glm::vec4(-1, -1, 1, 1), glm::vec4(1, 1, 1, 1), glm::vec4(0, 0, 1, 1) });
 
 	//TESTING REMOVE
 	/*Quadtree<box> root(glm::vec2(50, 50), glm::vec2(100, 100));
@@ -355,8 +440,9 @@ int main()
 	GLuint ray11Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray11");
 	GLuint lightPosUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "lightPos");
 	GLuint numBoxesUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_BOXES");
+	GLuint numTriUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_TRIANGLES");
 
-	int NUM_BOXES = 1;
+	int NUM_BOXES = 0;
 
 	box *boxes = new box[NUM_BOXES];
 
@@ -390,18 +476,16 @@ int main()
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, cubeShaderBuffer);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, cubeShaderBuffer);
 
-	Tri tri = {glm::vec4(-1, -1, 0, 1), glm::vec4(1, -1, 0, 1), glm::vec4(0, 1, 0, 1), glm::vec4(0, 0, 1, 1)};
-
 	//Setup Triangle Shader Buffer
 	GLuint triShaderBuffer;
 	glGenBuffers(1, &triShaderBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triShaderBuffer);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Tri), &tri, GL_STATIC_COPY);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Tri)*meshTris.size(), &meshTris[0], GL_STATIC_COPY);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triShaderBuffer);
 	p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-	memcpy(p, &tri, sizeof(Tri));
+	memcpy(p, &meshTris[0], sizeof(Tri)*meshTris.size());
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
 	blockIndex = glGetProgramResourceIndex(computeProgram.getShaderProgram(), GL_SHADER_STORAGE_BLOCK, "triangles");
@@ -427,8 +511,8 @@ int main()
 	glUniform1i(texUniform, 0);
 	glUseProgram(0);
 
-	glm::vec3 camera = glm::vec3(3.0f, 2.0f, 7.0f);
-	float currentAngle = glm::radians(23.f);
+	glm::vec3 camera = glm::vec3(0.0f, 0.0f, 7.0f);
+	float currentAngle = glm::radians(0.f);
 
 	glm::mat4 projection = glm::perspective(glm::radians(60.0f), (float)WIDTH / HEIGHT, 1.f, 2.f);
 	glm::mat4 t = glm::translate(glm::mat4(1.0f), -camera);
@@ -520,6 +604,7 @@ int main()
 		glUniform3f(lightPosUniform, 5, 5, 5);
 
 		glUniform1i(numBoxesUniform, NUM_BOXES);
+		glUniform1i(numTriUniform, meshTris.size());
 
 		/* Bind level 0 of framebuffer texture as writable image in the shader. */
 		glBindImageTexture(0, tex, 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
