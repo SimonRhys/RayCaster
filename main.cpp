@@ -19,8 +19,12 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+//SOIL
+#include <SOIL/SOIL.h>
+
 #include "Shader.h"
 #include "Quadtree.h"
+#include "Model.h"
 
 #define PI 3.14159265358979323846
 
@@ -29,17 +33,11 @@ struct box {
 	glm::vec4 boxMax;
 };
 
-struct Tri {
-	glm::vec4 p0;
-	glm::vec4 p1;
-	glm::vec4 p2;
-	glm::vec4 norm;
-};
-
 bool KEYS[1024];
 float AVG_DT = 0;
 bool TESTING = false;
 std::ofstream OUTPUT_FILE;
+std::vector<Texture> texturesLoaded;
 
 box* generateTestData(int numBoxes)
 {
@@ -55,8 +53,8 @@ box* generateTestData(int numBoxes)
 	{
 		for (int j = 0; j < nearestSqrt; j++)
 		{
-			boxes[count++] = { glm::vec4(-0.5 + i, -0.5, -0.5 + j, 1), glm::vec4(0.5 + i, 0.5, 0.5 + j, 1) };
-
+			//boxes[count++] = { glm::vec4(-0.5 + i, -0.5, -0.5 + j, 1), glm::vec4(0.5 + i, 0.5, 0.5 + j, 1) };
+			boxes[count++] = { glm::vec4(5 + i*5, 5, 5 + j*5, 1), glm::vec4(10 + i*5, 10, 10 + j*5, 1) };
 			if (count == numBoxes)
 			{
 				return boxes;
@@ -275,109 +273,11 @@ glm::vec3 getBoxCentre(box b)
 	return result;
 }
 
-void processMesh(aiMesh* mesh, std::vector<Tri> *meshTris)
-{
-	for (int i = 0; i < mesh->mNumFaces; i++)
-	{
-		aiFace face = mesh->mFaces[i];
-		for (int j = 0; j < face.mNumIndices; j+=3)
-		{
-			glm::vec4 vec0;
-			glm::vec4 vec1;
-			glm::vec4 vec2;
-			glm::vec4 norm = glm::vec4(0, 0, 0, 0);
-
-			vec0.x = mesh->mVertices[face.mIndices[j]].x;
-			vec0.y = mesh->mVertices[face.mIndices[j]].y;
-			vec0.z = mesh->mVertices[face.mIndices[j]].z;
-
-			vec1.x = mesh->mVertices[face.mIndices[j+1]].x;
-			vec1.y = mesh->mVertices[face.mIndices[j+1]].y;
-			vec1.z = mesh->mVertices[face.mIndices[j+1]].z;
-
-			vec2.x = mesh->mVertices[face.mIndices[j+2]].x;
-			vec2.y = mesh->mVertices[face.mIndices[j+2]].y;
-			vec2.z = mesh->mVertices[face.mIndices[j+2]].z;
-
-			meshTris->push_back({vec0, vec1, vec2, norm});
-		}
-	}
-}
-
-void processModel(const aiScene* scene, aiNode* node, std::vector<Tri> *meshTris)
-{
-	for (int i = 0; i < node->mNumMeshes; i++)
-	{
-		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
-		processMesh(mesh, meshTris);
-	}
-
-	for (int i = 0; i < node->mNumChildren; i++)
-	{
-		processModel(scene, node->mChildren[i], meshTris);
-	}
-}
-
 // The MAIN function, from here we start the application and run the game loop
 int main()
 {
-
-	Assimp::Importer importer;
-	const aiScene* objectModel = importer.ReadFile("obj_files/MaleLow.obj", aiProcess_Triangulate);
-
-	if (!objectModel || objectModel->mFlags == AI_SCENE_FLAGS_INCOMPLETE || !objectModel->mRootNode)
-	{
-		std::cout << "FAILED TO LOAD MODEL" << std::endl;
-		std::cout << "ERROR::ASSIMP::" << importer.GetErrorString() << std::endl;
-		return 0;
-	}
-
-	std::vector<Tri> meshTris;
-	processModel(objectModel, objectModel->mRootNode, &meshTris);
-
-	if (meshTris.size() < 100)
-	{
-		for (int i = 0; i < meshTris.size(); i++)
-		{
-			glm::vec4 p0 = meshTris[i].p0;
-			glm::vec4 p1 = meshTris[i].p1;
-			glm::vec4 p2 = meshTris[i].p2;
-
-			std::cout << "X = " << p0.x << " Y = " << p0.y << " Z = " << p0.z << std::endl;
-			std::cout << "X = " << p1.x << " Y = " << p1.y << " Z = " << p1.z << std::endl;
-			std::cout << "X = " << p2.x << " Y = " << p2.y << " Z = " << p2.z << std::endl << std::endl;
-
-		}
-	}
-
-
-	//meshTris.clear();
-
-	//meshTris.push_back({ glm::vec4(-1, -1, 1, 1), glm::vec4(1, 1, 1, 1), glm::vec4(-1, 1, 1, 1), glm::vec4(0, 0, 1, 1) });
-	//meshTris.push_back({ glm::vec4(-1, -1, 1, 1), glm::vec4(1, -1, 1, 1), glm::vec4(1, 1, 1, 1), glm::vec4(0, 0, 1, 1) });
-
-	//meshTris.push_back({ glm::vec4(-1, 1, 1, 1), glm::vec4(1, 1, 1, 1), glm::vec4(-1, -1, 1, 1), glm::vec4(0, 0, 1, 1) });
-	//meshTris.push_back({ glm::vec4(1, -1, 1, 1), glm::vec4(-1, -1, 1, 1), glm::vec4(1, 1, 1, 1), glm::vec4(0, 0, 1, 1) });
-
-	//TESTING REMOVE
-	/*Quadtree<box> root(glm::vec2(50, 50), glm::vec2(100, 100));
-	
-	box *testBoxes = new box[5];
-	testBoxes = generateTestData(5);
-	
-	for (int i = 0; i < 5; i++)
-	{
-		glm::vec3 cent = getBoxCentre(testBoxes[i]);
-		std::cout << root.insert(testBoxes[i], glm::vec2(cent.x, cent.z)) << std::endl;
-	}
-	
-	std::vector<box> res = root.search(glm::vec2(50, 50), glm::vec2(100, 100));
-	
-	std::cout << "FOUND " << res.size() << " BOXES: " << std::endl;
-	for (int i = 0; i < res.size(); i++)
-	{
-		std::cout << "x = " << testBoxes[i].boxMin.y << " y = " << testBoxes[i].boxMax.z << std::endl;
-	}*/
+	Model model("obj_files/Rock1/Rock1.obj");
+	std::vector<Tri> modelTriangles = model.getModelTris();
 
 	if (TESTING)
 	{
@@ -421,7 +321,6 @@ int main()
 	GLuint tex = createFramebufferTexture(WIDTH, HEIGHT);
 	GLuint vao = quadFullScreenVAO();
 
-
 	//Setup compute program
 	Shader computeProgram;
 	computeProgram.createShader("demo01.glslcs", GL_COMPUTE_SHADER);
@@ -442,13 +341,30 @@ int main()
 	GLuint numBoxesUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_BOXES");
 	GLuint numTriUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_TRIANGLES");
 
-	int NUM_BOXES = 0;
+	int NUM_BOXES = 1;
+	
+	box *boxes = new box[1];
+	boxes = generateTestData(1);
 
-	box *boxes = new box[NUM_BOXES];
+	/*Quadtree<box> root(glm::vec2(50, 50), glm::vec2(100, 100));
+
+	for (int i = 0; i < 10; i++)
+	{
+		glm::vec3 cent = getBoxCentre(boxes[i]);
+		std::cout << root.insert(boxes[i], glm::vec2(cent.x, cent.z)) << std::endl;
+	}
+
+	std::vector<box> res = root.search(glm::vec2(50, 50), glm::vec2(100, 100));
+
+	std::cout << "FOUND " << res.size() << " BOXES: " << std::endl;
+	for (int i = 0; i < res.size(); i++)
+	{
+		std::cout << "x = " << boxes[i].boxMin.y << " y = " << boxes[i].boxMax.z << std::endl;
+	}*/
 
 	for (int i = 0; i < NUM_BOXES; i++)
 	{
-		boxes[i] = { glm::vec4(-5.0, -0.1 + i, -5.0, 1), glm::vec4(5.0, 0.0 + i, 5.0, 1) };
+		//boxes[i] = { glm::vec4(-5.0, -0.1 + i, -5.0, 1), glm::vec4(5.0, 0.0 + i, 5.0, 1) };
 	}
 
 	if (TESTING)
@@ -480,12 +396,12 @@ int main()
 	GLuint triShaderBuffer;
 	glGenBuffers(1, &triShaderBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triShaderBuffer);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Tri)*meshTris.size(), &meshTris[0], GL_STATIC_COPY);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Tri)*modelTriangles.size(), &modelTriangles[0], GL_STATIC_COPY);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triShaderBuffer);
 	p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-	memcpy(p, &meshTris[0], sizeof(Tri)*meshTris.size());
+	memcpy(p, &modelTriangles[0], sizeof(Tri)*modelTriangles.size());
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
 	blockIndex = glGetProgramResourceIndex(computeProgram.getShaderProgram(), GL_SHADER_STORAGE_BLOCK, "triangles");
@@ -509,6 +425,9 @@ int main()
 	glUseProgram(quadProgram.getShaderProgram());
 	GLuint texUniform = glGetUniformLocation(quadProgram.getShaderProgram(), "tex");
 	glUniform1i(texUniform, 0);
+
+	GLuint modelTexUniform = glGetUniformLocation(quadProgram.getShaderProgram(), "modelTex");
+	glUniform1i(modelTexUniform, 1);
 	glUseProgram(0);
 
 	glm::vec3 camera = glm::vec3(0.0f, 0.0f, 7.0f);
@@ -604,10 +523,11 @@ int main()
 		glUniform3f(lightPosUniform, 5, 5, 5);
 
 		glUniform1i(numBoxesUniform, NUM_BOXES);
-		glUniform1i(numTriUniform, meshTris.size());
+		glUniform1i(numTriUniform, modelTriangles.size());
 
 		/* Bind level 0 of framebuffer texture as writable image in the shader. */
 		glBindImageTexture(0, tex, 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
+
 
 		/* Compute appropriate invocation dimension. */
 		int worksizeX = nextPowerOfTwo(WIDTH);
@@ -627,7 +547,11 @@ int main()
 		*/
 		glUseProgram(quadProgram.getShaderProgram());
 		glBindVertexArray(vao);
+
+		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, model.getTextures()[0].id);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glBindVertexArray(0);

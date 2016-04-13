@@ -18,6 +18,9 @@ struct Tri {
 	vec3 p1;
 	vec3 p2;
 	vec3 norm;
+	vec3 tex0;
+	vec3 tex1;
+	vec3 tex2;
 };
 
 uniform vec3 eye;
@@ -30,6 +33,7 @@ uniform int NUM_BOXES;
 uniform int NUM_TRIANGLES;
 
 layout(binding = 0, rgba32f) uniform image2D framebuffer;
+//layout(binding = 1) uniform sampler2D modelTex;
 layout(std430) buffer boxes {
 	 box data[];
 };
@@ -67,7 +71,7 @@ layout(std430) buffer triangles {
 
 }*/
 
-float intersectTri(vec3 origin, vec3 dir, const Tri tri)
+float intersectTri(vec3 origin, vec3 dir, const Tri tri, out vec2 tex)
 {
 	vec3 v0v1 = tri.p1 - tri.p0;
 	vec3 v0v2 = tri.p2 - tri.p0;
@@ -95,22 +99,38 @@ float intersectTri(vec3 origin, vec3 dir, const Tri tri)
 		return -1;
 	} 
 
+	//If the texture co-ords are less than 0
+	//then there is no texture information
+	if(tri.tex0.x > 0)
+	{
+		vec3 temp = u*tri.tex0 + v*tri.tex1 + (1-u-v)*tri.tex2;
+		tex.x = temp.x;
+		tex.y = temp.y;
+	}
+	else
+	{
+		tex.x = tri.tex0.x;
+		tex.y = tri.tex0.y;
+	}
+
 	float t = dot(v0v2, qvec) * invDet;
 
 	return t;
 
 }
 
-bool intersectTriangles(vec3 origin, vec3 dir, out float t)
+bool intersectTriangles(vec3 origin, vec3 dir, out Tri triFound, out float smallest, out vec2 tex)
 {
-	float smallest = MAX_SCENE_BOUNDS;
+	smallest = MAX_SCENE_BOUNDS;
 	bool found = false;
 	for(int i=0; i < NUM_TRIANGLES; i++)
 	{
-		t = intersectTri(origin, dir, triData[i]);
+		
+		float t = intersectTri(origin, dir, triData[i], tex);
 		if( t >= 0 && t < smallest)
 		{
 			smallest = t;
+			triFound = triData[i];
 			found = true;
 		}
 	}
@@ -176,10 +196,6 @@ vec4 trace(vec3 origin, vec3 dir) {
 		{
 			faceNormal = vec3(0, 0, 1);
 		}
-		else
-		{
-			return vec4(1, 1, 1, 1);
-		}
 
 		// Ambient
 		vec3 lightColour = vec3(1, 1, 1);
@@ -200,10 +216,32 @@ vec4 trace(vec3 origin, vec3 dir) {
     
 	}
 
+	Tri triFound;
 	float t;
-	if(intersectTriangles(origin, dir, t))
+	vec2 texCoord;
+	if(intersectTriangles(origin, dir, triFound, t, texCoord))
 	{
-		return vec4(1, 0, 0, 1);
+		vec3 faceNormal = triFound.norm;
+		vec3 intersect = origin + dir * t;
+		// Ambient
+		vec3 lightColour = vec3(1, 1, 1);
+		vec3 objectColour = vec3(1, 0, 0);
+		float ambientStrength = 0.3f;
+		vec3 ambient = ambientStrength * lightColour;
+
+		// Diffuse 
+		vec3 lightDir = normalize(lightPos - intersect);
+		float diff = max(dot(faceNormal, lightDir), 0.0);
+		vec3 diffuse = diff * lightColour;
+
+		vec3 result = (ambient + diffuse) * objectColour;
+		vec4 colour = vec4(result, 1.0f);
+		if(texCoord.x > 0)
+		{
+			colour = colour; // * texture2d(modelTex, texCoord);
+		}
+
+		return colour;
 	}
 
 	return vec4(0.5, 0.5, 0.5, 1.0); //vec4(dir, 1); //
