@@ -41,36 +41,6 @@ layout(std430, binding = 3) buffer triangles {
 	Tri triData[];
 };
 
-/*float intersectTri(vec3 origin, vec3 dir, const Tri tri)
-{
-
-	dir = -dir;
-	vec3 v0v1 = tri.p1 - tri.p0;
-	vec3 v0v2 = tri.p2 - tri.p0;
-	vec3 n = cross(v0v1, v0v2);
-	n = normalize(n);
-	
-	vec3 q = cross(v0v2, dir);
-	float a = dot(v0v1, q);
-
-	if(abs(a) <= 1e-8 ) return -1; //backfacing || dot(n, dir) >= 0
-
-	vec3 s = (origin - tri.p0) / a;
-	vec3 r = cross(s, v0v1);
-
-	float b[3];
-	b[0] = dot(s, q);
-	b[1] = dot(r, dir);
-	b[2] = 1 - b[0] - b[1];
-
-	if(b[0] < 0 || b[1] < 0 || b[2] < 0) return -1;
-
-	float t = dot(v0v2, r);
-
-	return t;
-
-}*/
-
 float intersectTri(vec3 origin, vec3 dir, const Tri tri, out vec2 tex)
 {
 	vec3 v0v1 = tri.p1 - tri.p0;
@@ -164,6 +134,7 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info) {
   }
   return found;
 }
+
 vec4 trace(vec3 origin, vec3 dir) {
 	hitinfo i;
 	if (intersectBoxes(origin, dir, i)) 
@@ -236,18 +207,23 @@ vec4 trace(vec3 origin, vec3 dir) {
 		vec3 result = clamp(ambient + diffuse, 0, 1);
 		vec4 colour = vec4(result, 1.0f);
 
-
-		if(texCoord.x > 0)
+		ivec2 texSize = imageSize(modelTex);
+		if(texCoord.x > 0 && texSize.x > 0)
 		{
-			ivec2 texSize = imageSize(modelTex);
-			ivec2 intTexCoord = ivec2(texSize.x * texCoord.x, texSize.y - texSize.y * texCoord.y);
+			ivec2 intTexCoord = ivec2(texSize.x * texCoord.x, texSize.y * texCoord.y);
 			colour = colour * imageLoad(modelTex, intTexCoord);
+		}
+		else
+		{
+			//We don't have texture information so 
+			//paint object a nice shade of red
+			colour = colour * vec4(0.8, 0, 0, 1);
 		}
 
 		return colour;
 	}
 
-	return vec4(0.5, 0.5, 0.5, 1.0); //vec4(dir, 1); //
+	return vec4(0.5, 0.5, 0.5, 1.0);
 }
 
 layout (local_size_x = 16, local_size_y = 8) in;

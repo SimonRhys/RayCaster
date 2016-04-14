@@ -65,14 +65,14 @@ box* generateTestData(int numBoxes)
 	return boxes;
 }
 
-GLuint createFramebufferTexture(GLuint width, GLuint height, unsigned char* image)
+GLuint createFramebufferTexture(GLuint width, GLuint height)
 {
 	GLuint tex;
 	glGenTextures(1, &tex);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, image);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	return tex;
 }
@@ -273,7 +273,6 @@ glm::vec3 getBoxCentre(box b)
 	return result;
 }
 
-// The MAIN function, from here we start the application and run the game loop
 int main()
 {
 	if (TESTING)
@@ -281,12 +280,12 @@ int main()
 		OUTPUT_FILE.open("output.csv");
 	}
 
-	// Window dimensions
-	const GLuint WIDTH = 1024, HEIGHT = 768;
+	//Window dimensions
+	const GLuint WIDTH = 512, HEIGHT = 384;
 
-	// Init GLFW
+	//Init GLFW
 	glfwInit();
-	// Set all the required options for GLFW
+	//Set all the required options for GLFW
 	glfwDefaultWindowHints();
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
@@ -295,16 +294,16 @@ int main()
 	glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
 	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
-	// Create a GLFWwindow object that we can use for GLFW's functions
+	//Create a GLFWwindow object that we can use for GLFW's functions
 	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "LearnOpenGL", nullptr, nullptr);
 	glfwMakeContextCurrent(window);
 
-	// Set the required callback functions
+	//Set the required callback functions
 	glfwSetKeyCallback(window, key_callback);
 		
 	glfwShowWindow(window);
 
-	// Initialize GLEW
+	//Initialize GLEW
 	glewExperimental = true; // Needed for core profile
 	if (glewInit() != GLEW_OK)
 	{
@@ -312,26 +311,13 @@ int main()
 		return -1;
 	}
 
-	Model model("obj_files/Rock1/Rock1.obj");
+	Model model("obj_files/Sword/Sword OBJ.obj");
 	std::vector<Tri> modelTriangles = model.getModelTris();
 
-	// Define the viewport dimensions
+	//Define the viewport dimensions
 	glViewport(0, 0, WIDTH, HEIGHT);
 
-	int width, height;
-	unsigned char* image = SOIL_load_image("obj_files/Rock1/Rock-Texture-Surface.jpg", &width, &height, 0, SOIL_LOAD_RGBA);
-	std::cout << SOIL_last_result() << " " << width << " " << height << std::endl;
-
-	GLuint tex = createFramebufferTexture(WIDTH, HEIGHT, nullptr);
-	GLuint modelTex;
-	glGenTextures(1, &modelTex);
-	glBindTexture(GL_TEXTURE_2D, modelTex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-	glBindTexture(GL_TEXTURE_2D, 0);
-	SOIL_free_image_data(image);
-
+	GLuint tex = createFramebufferTexture(WIDTH, HEIGHT);
 	GLuint vao = quadFullScreenVAO();
 
 	//Setup compute program
@@ -345,6 +331,7 @@ int main()
 	GLint workGroupSizeX = workGroupSize[0];
 	GLint workGroupSizeY = workGroupSize[1];
 
+	//Setup the uniforms needed for the compute shader
 	GLuint eyeUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "eye");
 	GLuint ray00Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray00");
 	GLuint ray10Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray10");
@@ -353,31 +340,10 @@ int main()
 	GLuint lightPosUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "lightPos");
 	GLuint numBoxesUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_BOXES");
 	GLuint numTriUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_TRIANGLES");
-	int NUM_BOXES = 1;
+	int NUM_BOXES = 0;
 	
 	box *boxes = new box[1];
 	boxes = generateTestData(1);
-
-	/*Quadtree<box> root(glm::vec2(50, 50), glm::vec2(100, 100));
-
-	for (int i = 0; i < 10; i++)
-	{
-		glm::vec3 cent = getBoxCentre(boxes[i]);
-		std::cout << root.insert(boxes[i], glm::vec2(cent.x, cent.z)) << std::endl;
-	}
-
-	std::vector<box> res = root.search(glm::vec2(50, 50), glm::vec2(100, 100));
-
-	std::cout << "FOUND " << res.size() << " BOXES: " << std::endl;
-	for (int i = 0; i < res.size(); i++)
-	{
-		std::cout << "x = " << boxes[i].boxMin.y << " y = " << boxes[i].boxMax.z << std::endl;
-	}*/
-
-	for (int i = 0; i < NUM_BOXES; i++)
-	{
-		//boxes[i] = { glm::vec4(-5.0, -0.1 + i, -5.0, 1), glm::vec4(5.0, 0.0 + i, 5.0, 1) };
-	}
 
 	if (TESTING)
 	{
@@ -454,7 +420,11 @@ int main()
 	float totalDT = 0;
 	int frameNum = 0;
 
-	// Game loop
+	//Output scene information to console
+	std::cout << "Resolution: Width=" << WIDTH << " Height=" << HEIGHT << std::endl;
+	std::cout << "Model polygon count: " << modelTriangles.size() << std::endl;
+	
+	//Window loop
 	while (!glfwWindowShouldClose(window))
 	{
 
@@ -498,7 +468,7 @@ int main()
 			}
 		}
 
-		// Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
+		//Check if any events have been activiated (key pressed, mouse moved etc.) and call corresponding response functions
 		glfwPollEvents();
 
 		glViewport(0, 0, WIDTH, HEIGHT);
@@ -514,7 +484,7 @@ int main()
 
 		glUseProgram(computeProgram.getShaderProgram());
 
-		/* Set viewing frustum corner rays in shader */
+		//Set viewing frustum corner rays in shader
 		glUniform3f(eyeUniform, camera.x, camera.y, camera.z);
 
 		eyeRay = calculateEyeRay(glm::vec4(-1, -1, 0, 1), camera, inverseVP);
@@ -534,28 +504,30 @@ int main()
 		glUniform1i(numBoxesUniform, NUM_BOXES);
 		glUniform1i(numTriUniform, modelTriangles.size());
 
-		/* Bind level 0 of framebuffer texture as writable image in the shader. */
+		//Bind framebuffer texture to image unit 0 as writable image in the shader.
 		glBindImageTexture(0, tex, 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
-		glBindImageTexture(1, modelTex, 0, false, 0, GL_READ_ONLY, GL_RGBA32F);
+		//Bind model texture to image unit 1 as readable image in the shader
+		if(model.hasTexture())
+		{
+			glBindImageTexture(1, model.getTextures()[0].id, 0, false, 0, GL_READ_ONLY, GL_RGBA32F);
+		}
 
 
-		/* Compute appropriate invocation dimension. */
+		//Compute appropriate invocation dimension. 
 		int worksizeX = nextPowerOfTwo(WIDTH);
 		int worksizeY = nextPowerOfTwo(HEIGHT);
 
-		/* Invoke the compute shader. */
+		//Invoke the compute shader. 
 		glDispatchCompute(worksizeX / workGroupSizeX, worksizeY / workGroupSizeY, 1);
 
-		/* Reset image binding. */
+		//Reset image binding. 
 		glBindImageTexture(0, 0, 0, false, 0, GL_READ_WRITE, GL_RGBA32F);
 		glBindImageTexture(1, 0, 0, false, 0, GL_READ_ONLY, GL_RGBA32F);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		glUseProgram(0);
 
-		/*
-		* Draw the rendered image on the screen using textured full-screen
-		* quad.
-		*/
+		//Draw the rendered image on the screen using textured full-screen
+		//quad.
 		glUseProgram(quadProgram.getShaderProgram());
 		glBindVertexArray(vao);
 		glBindTexture(GL_TEXTURE_2D, tex);
@@ -564,12 +536,12 @@ int main()
 		glBindVertexArray(0);
 		glUseProgram(0);
 
-		// Swap the screen buffers
+		//Swap the screen buffers
 		glfwSwapBuffers(window);
 	}
-	// Properly de-allocate all resources once they've outlived their purpose
+	//Properly de-allocate all resources once they've outlived their purpose
 	glDeleteVertexArrays(1, &vao);
-	// Terminate GLFW, clearing any resources allocated by GLFW.
+	//Terminate GLFW, clearing any resources allocated by GLFW.
 	glfwTerminate();
 	delete[] boxes;
 	modelTriangles.clear();
