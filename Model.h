@@ -54,6 +54,8 @@ class Model
 		std::vector<Texture> getTextures();
 
 		GLint loadTextureFromFile(const char* path);
+
+		bool hasTexture();
 		
 
 	private:
