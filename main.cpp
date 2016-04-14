@@ -65,14 +65,14 @@ box* generateTestData(int numBoxes)
 	return boxes;
 }
 
-GLuint createFramebufferTexture(GLuint width, GLuint height)
+GLuint createFramebufferTexture(GLuint width, GLuint height, unsigned char* image)
 {
 	GLuint tex;
 	glGenTextures(1, &tex);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, image);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	return tex;
 }
@@ -276,9 +276,6 @@ glm::vec3 getBoxCentre(box b)
 // The MAIN function, from here we start the application and run the game loop
 int main()
 {
-	Model model("obj_files/Rock1/Rock1.obj");
-	std::vector<Tri> modelTriangles = model.getModelTris();
-
 	if (TESTING)
 	{
 		OUTPUT_FILE.open("output.csv");
@@ -315,10 +312,26 @@ int main()
 		return -1;
 	}
 
+	Model model("obj_files/Rock1/Rock1.obj");
+	std::vector<Tri> modelTriangles = model.getModelTris();
+
 	// Define the viewport dimensions
 	glViewport(0, 0, WIDTH, HEIGHT);
 
-	GLuint tex = createFramebufferTexture(WIDTH, HEIGHT);
+	int width, height;
+	unsigned char* image = SOIL_load_image("obj_files/Rock1/Rock-Texture-Surface.jpg", &width, &height, 0, SOIL_LOAD_RGBA);
+	std::cout << SOIL_last_result() << " " << width << " " << height << std::endl;
+
+	GLuint tex = createFramebufferTexture(WIDTH, HEIGHT, nullptr);
+	GLuint modelTex;
+	glGenTextures(1, &modelTex);
+	glBindTexture(GL_TEXTURE_2D, modelTex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	SOIL_free_image_data(image);
+
 	GLuint vao = quadFullScreenVAO();
 
 	//Setup compute program
@@ -340,7 +353,6 @@ int main()
 	GLuint lightPosUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "lightPos");
 	GLuint numBoxesUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_BOXES");
 	GLuint numTriUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_TRIANGLES");
-
 	int NUM_BOXES = 1;
 	
 	box *boxes = new box[1];
@@ -425,9 +437,6 @@ int main()
 	glUseProgram(quadProgram.getShaderProgram());
 	GLuint texUniform = glGetUniformLocation(quadProgram.getShaderProgram(), "tex");
 	glUniform1i(texUniform, 0);
-
-	GLuint modelTexUniform = glGetUniformLocation(quadProgram.getShaderProgram(), "modelTex");
-	glUniform1i(modelTexUniform, 1);
 	glUseProgram(0);
 
 	glm::vec3 camera = glm::vec3(0.0f, 0.0f, 7.0f);
@@ -527,6 +536,7 @@ int main()
 
 		/* Bind level 0 of framebuffer texture as writable image in the shader. */
 		glBindImageTexture(0, tex, 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
+		glBindImageTexture(1, modelTex, 0, false, 0, GL_READ_ONLY, GL_RGBA32F);
 
 
 		/* Compute appropriate invocation dimension. */
@@ -538,6 +548,7 @@ int main()
 
 		/* Reset image binding. */
 		glBindImageTexture(0, 0, 0, false, 0, GL_READ_WRITE, GL_RGBA32F);
+		glBindImageTexture(1, 0, 0, false, 0, GL_READ_ONLY, GL_RGBA32F);
 		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		glUseProgram(0);
 
@@ -547,11 +558,7 @@ int main()
 		*/
 		glUseProgram(quadProgram.getShaderProgram());
 		glBindVertexArray(vao);
-
-		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, tex);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, model.getTextures()[0].id);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glBindVertexArray(0);
@@ -565,6 +572,7 @@ int main()
 	// Terminate GLFW, clearing any resources allocated by GLFW.
 	glfwTerminate();
 	delete[] boxes;
+	modelTriangles.clear();
 
 	if (TESTING)
 	{
