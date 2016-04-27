@@ -1,15 +1,15 @@
 #version 430 core
 #define MAX_SCENE_BOUNDS 100.0
 
-struct box {
+struct cube {
   vec3 min;
   vec3 max;
 };
 
 struct hitinfo {
   vec2 lambda;
-  vec3 boxMin;
-  vec3 boxMax;
+  vec3 cubeMin;
+  vec3 cubeMax;
   int bi;
 };
 
@@ -29,13 +29,13 @@ uniform vec3 ray01;
 uniform vec3 ray10;
 uniform vec3 ray11;
 uniform vec3 lightPos;
-uniform int NUM_BOXES;
+uniform int NUM_CUBES;
 uniform int NUM_TRIANGLES;
 
 layout(binding = 0, rgba32f) uniform writeonly image2D framebuffer;
 layout(binding = 1, rgba32f) uniform readonly image2D modelTex;
-layout(std430, binding = 2) buffer boxes {
-	 box data[];
+layout(std430, binding = 2) buffer cubes {
+	 cube data[];
 };
 layout(std430, binding = 3) buffer triangles {
 	Tri triData[];
@@ -108,9 +108,10 @@ bool intersectTriangles(vec3 origin, vec3 dir, out Tri triFound, out float small
 	return found;
 }
 
-vec2 intersectBox(vec3 origin, vec3 dir, const box b) {
-  vec3 tMin = (b.min - origin) / dir;
-  vec3 tMax = (b.max - origin) / dir;
+vec2 intersectCube(vec3 origin, vec3 dir, const cube c) 
+{
+  vec3 tMin = (c.min - origin) / dir;
+  vec3 tMax = (c.max - origin) / dir;
   vec3 t1 = min(tMin, tMax);
   vec3 t2 = max(tMin, tMax);
   float tNear = max(max(t1.x, t1.y), t1.z);
@@ -118,16 +119,19 @@ vec2 intersectBox(vec3 origin, vec3 dir, const box b) {
   return vec2(tNear, tFar);
 }
 
-bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info) {
+bool intersectCubes(vec3 origin, vec3 dir, out hitinfo info) 
+{
   float smallest = MAX_SCENE_BOUNDS;
   bool found = false;
-  for (int i = 0; i < NUM_BOXES; i++) {
-    vec2 lambda = intersectBox(origin, dir, data[i]);
-    if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest) {
+  for (int i = 0; i < NUM_CUBES; i++) 
+  {
+    vec2 lambda = intersectCube(origin, dir, data[i]);
+    if (lambda.x > 0.0 && lambda.x < lambda.y && lambda.x < smallest) 
+	{
       info.lambda = lambda;
       info.bi = i;
-	  info.boxMin = data[i].min;
-	  info.boxMax = data[i].max;
+	  info.cubeMin = data[i].min;
+	  info.cubeMax = data[i].max;
       smallest = lambda.x;
       found = true;
     }
@@ -135,13 +139,14 @@ bool intersectBoxes(vec3 origin, vec3 dir, out hitinfo info) {
   return found;
 }
 
-vec4 trace(vec3 origin, vec3 dir) {
+vec4 trace(vec3 origin, vec3 dir) 
+{
 	hitinfo i;
-	if (intersectBoxes(origin, dir, i)) 
+	if (intersectCubes(origin, dir, i)) 
 	{
 		vec3 intersect = origin + dir * i.lambda.x;
-		vec3 minResult = abs(i.boxMin - intersect);
-		vec3 maxResult = abs(i.boxMax - intersect);
+		vec3 minResult = abs(i.cubeMin - intersect);
+		vec3 maxResult = abs(i.cubeMax - intersect);
 		vec3 faceNormal = vec3(0, 0, 0);
 		if(minResult.x < 0.01)
 		{
@@ -227,11 +232,13 @@ vec4 trace(vec3 origin, vec3 dir) {
 }
 
 layout (local_size_x = 16, local_size_y = 8) in;
-void main(void) {
+void main(void) 
+{
 	ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
 	ivec2 size = imageSize(framebuffer);
-	if (pix.x >= size.x || pix.y >= size.y) {
-	return;
+	if (pix.x >= size.x || pix.y >= size.y) 
+	{
+		return;
 	}
 	vec2 pos = vec2(pix) / vec2(size.x - 1, size.y - 1);
 	vec3 dir = mix(mix(ray00, ray01, pos.y), mix(ray10, ray11, pos.y), pos.x);

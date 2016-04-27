@@ -28,9 +28,9 @@
 
 #define PI 3.14159265358979323846
 
-struct box {
-	glm::vec4 boxMin;
-	glm::vec4 boxMax;
+struct cube {
+	glm::vec4 cubeMin;
+	glm::vec4 cubeMax;
 };
 
 bool KEYS[1024];
@@ -39,11 +39,11 @@ bool TESTING = false;
 std::ofstream OUTPUT_FILE;
 std::vector<Texture> texturesLoaded;
 
-box* generateTestData(int numBoxes)
+cube* generateTestData(int numCubes)
 {
 
-	box *boxes = new box[numBoxes];
-	float nearestSqrt = sqrt(numBoxes);
+	cube *cubes = new cube[numCubes];
+	float nearestSqrt = sqrt(numCubes);
 	nearestSqrt = (int)nearestSqrt;
 	nearestSqrt++;
 
@@ -53,16 +53,15 @@ box* generateTestData(int numBoxes)
 	{
 		for (int j = 0; j < nearestSqrt; j++)
 		{
-			//boxes[count++] = { glm::vec4(-0.5 + i, -0.5, -0.5 + j, 1), glm::vec4(0.5 + i, 0.5, 0.5 + j, 1) };
-			boxes[count++] = { glm::vec4(5 + i*5, 5, 5 + j*5, 1), glm::vec4(10 + i*5, 10, 10 + j*5, 1) };
-			if (count == numBoxes)
+			cubes[count++] = { glm::vec4(5 + i*5, 5, 5 + j*5, 1), glm::vec4(10 + i*5, 10, 10 + j*5, 1) };
+			if (count == numCubes)
 			{
-				return boxes;
+				return cubes;
 			}
 		}
 	}
 	
-	return boxes;
+	return cubes;
 }
 
 GLuint createFramebufferTexture(GLuint width, GLuint height)
@@ -265,9 +264,9 @@ void printMatrix(glm::mat4 m)
 	}
 }
 
-glm::vec3 getBoxCentre(box b)
+glm::vec3 getCubeCentre(cube c)
 {
-	glm::vec4 diff = b.boxMax - b.boxMin;
+	glm::vec4 diff = c.cubeMax - c.cubeMin;
 	glm::vec3 result = glm::vec3(diff.x, diff.y, diff.z);
 
 	return result;
@@ -322,7 +321,7 @@ int main()
 
 	//Setup compute program
 	Shader computeProgram;
-	computeProgram.createShader("demo01.glslcs", GL_COMPUTE_SHADER);
+	computeProgram.createShader("compute.csh", GL_COMPUTE_SHADER);
 	computeProgram.createProgram();
 
 	glUseProgram(computeProgram.getShaderProgram());
@@ -338,34 +337,34 @@ int main()
 	GLuint ray01Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray01");
 	GLuint ray11Uniform = glGetUniformLocation(computeProgram.getShaderProgram(), "ray11");
 	GLuint lightPosUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "lightPos");
-	GLuint numBoxesUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_BOXES");
+	GLuint numCubesUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_CUBES");
 	GLuint numTriUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_TRIANGLES");
-	int NUM_BOXES = 0;
+	int NUM_CUBES = 0;
 	
-	box *boxes = new box[1];
-	boxes = generateTestData(1);
+	cube *cubes = new cube[1];
+	cubes = generateTestData(1);
 
 	if (TESTING)
 	{
-		NUM_BOXES = 1;
-		delete[] boxes;
-		boxes = generateTestData(NUM_BOXES);
+		NUM_CUBES = 1;
+		delete[] cubes;
+		cubes = generateTestData(NUM_CUBES);
 	}
 	
 	//Setup Cube Shader Buffer
 	GLuint cubeShaderBuffer;
 	glGenBuffers(1, &cubeShaderBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(box)*NUM_BOXES, &boxes[0], GL_STATIC_COPY);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(cube)*NUM_CUBES, &cubes[0], GL_STATIC_COPY);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
 	GLvoid* p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-	memcpy(p, &boxes[0], sizeof(box)*NUM_BOXES);
+	memcpy(p, &cubes[0], sizeof(cube)*NUM_CUBES);
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
 	GLuint blockIndex;
-	blockIndex = glGetProgramResourceIndex(computeProgram.getShaderProgram(), GL_SHADER_STORAGE_BLOCK, "boxes");
+	blockIndex = glGetProgramResourceIndex(computeProgram.getShaderProgram(), GL_SHADER_STORAGE_BLOCK, "cubes");
 	glShaderStorageBlockBinding(computeProgram.getShaderProgram(), blockIndex, 2);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, cubeShaderBuffer);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, cubeShaderBuffer);
@@ -443,24 +442,24 @@ int main()
 			
 			if (TESTING)
 			{
-				NUM_BOXES++;
-				delete[] boxes;
-				boxes = generateTestData(NUM_BOXES);
+				NUM_CUBES++;
+				delete[] cubes;
+				cubes = generateTestData(NUM_CUBES);
 
 				glUseProgram(computeProgram.getShaderProgram());
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
-				glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(box)*NUM_BOXES, &boxes[0], GL_STATIC_COPY);
+				glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(cube)*NUM_CUBES, &cubes[0], GL_STATIC_COPY);
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
 				p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-				memcpy(p, &boxes[0], sizeof(box)*NUM_BOXES);
+				memcpy(p, &cubes[0], sizeof(cube)*NUM_CUBES);
 				glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 				glUseProgram(0);
 
 				float fps = 1 / AVG_DT;
-				std::cout << NUM_BOXES << " boxes at " << fps << " fps" << std::endl;
-				OUTPUT_FILE << fps << ", " << NUM_BOXES << "\n";
+				std::cout << NUM_CUBES << " cubes at " << fps << " fps" << std::endl;
+				OUTPUT_FILE << fps << ", " << NUM_CUBES << "\n";
 				if (fps <= 10)
 				{
 					glfwSetWindowShouldClose(window, 1);
@@ -501,7 +500,7 @@ int main()
 
 		glUniform3f(lightPosUniform, 5, 5, 5);
 
-		glUniform1i(numBoxesUniform, NUM_BOXES);
+		glUniform1i(numCubesUniform, NUM_CUBES);
 		glUniform1i(numTriUniform, modelTriangles.size());
 
 		//Bind framebuffer texture to image unit 0 as writable image in the shader.
@@ -543,7 +542,7 @@ int main()
 	glDeleteVertexArrays(1, &vao);
 	//Terminate GLFW, clearing any resources allocated by GLFW.
 	glfwTerminate();
-	delete[] boxes;
+	delete[] cubes;
 	modelTriangles.clear();
 
 	if (TESTING)
