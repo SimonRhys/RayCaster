@@ -14,9 +14,9 @@ struct hitinfo {
 };
 
 struct Tri {
-	vec3 p0;
-	vec3 p1;
-	vec3 p2;
+	vec3 v0;
+	vec3 v1;
+	vec3 v2;
 	vec3 norm;
 	vec3 tex0;
 	vec3 tex1;
@@ -43,8 +43,8 @@ layout(std430, binding = 3) buffer triangles {
 
 float intersectTri(vec3 origin, vec3 dir, const Tri tri, out vec2 tex)
 {
-	vec3 v0v1 = tri.p1 - tri.p0;
-	vec3 v0v2 = tri.p2 - tri.p0;
+	vec3 v0v1 = tri.v1 - tri.v0;
+	vec3 v0v2 = tri.v2 - tri.v0;
 	vec3 pvec = cross(dir, v0v2);
 	float det = dot(v0v1, pvec);
 
@@ -55,7 +55,7 @@ float intersectTri(vec3 origin, vec3 dir, const Tri tri, out vec2 tex)
 
 	float invDet = 1/det;
 
-	vec3 tvec = origin - tri.p0;
+	vec3 tvec = origin - tri.v0;
 	float u = dot(tvec, pvec) * invDet;
 	if(u < 0 || u > 1)
 	{
