@@ -35,13 +35,17 @@ struct cube {
 
 bool KEYS[1024];
 float AVG_DT = 0;
-bool TESTING = false;
+bool CUBE_TESTING = false;
+bool MODEL_TESTING = false;
 std::ofstream OUTPUT_FILE;
 std::vector<Texture> texturesLoaded;
 
-cube* generateTestData(int numCubes)
+cube* generateCubeData(int numCubes)
 {
-
+	if (numCubes == 0)
+	{
+		return new cube[1];
+	}
 	cube *cubes = new cube[numCubes];
 	float nearestSqrt = sqrt(numCubes);
 	nearestSqrt = (int)nearestSqrt;
@@ -53,7 +57,7 @@ cube* generateTestData(int numCubes)
 	{
 		for (int j = 0; j < nearestSqrt; j++)
 		{
-			cubes[count++] = { glm::vec4(5 + i*5, 5, 5 + j*5, 1), glm::vec4(10 + i*5, 10, 10 + j*5, 1) };
+			cubes[count++] = { glm::vec4(5 + i*15, 0, 5 + j*15, 1), glm::vec4(10 + i*15, 5, 10 + j*15, 1) };
 			if (count == numCubes)
 			{
 				return cubes;
@@ -272,15 +276,91 @@ glm::vec3 getCubeCentre(cube c)
 	return result;
 }
 
+std::string getConfigValue(std::string line, std::string config)
+{
+	std::size_t found = line.find(config);
+	if (found == std::string::npos)
+	{
+		return "";
+	}
+
+	found = line.find("=");
+	if (found == std::string::npos)
+	{
+		return "";
+	}
+
+	return line.substr(found + 1);
+}
+
+void loadConfig(GLuint *w, GLuint *h, std::string *modelPath, int *numCubes)
+{
+	std::ifstream configFile;
+	configFile.open("config.txt");
+	if (!configFile.is_open())
+	{
+		std::cout << "ERROR OPENING CONFIG" << std::endl;
+		return;
+	}
+
+	std::string line;
+	while (getline(configFile, line))
+	{
+		std::string value = getConfigValue(line, "width");
+		if (value != "") 
+		{
+			*w = stoi(value);
+		}
+
+		value = getConfigValue(line, "height");
+		if (value != "")
+		{
+			*h = stoi(value);
+		}
+
+		value = getConfigValue(line, "modelPath");
+		if (value != "")
+		{
+			*modelPath = value;
+		}
+
+		value = getConfigValue(line, "numCubes");
+		if (value != "")
+		{
+			*numCubes = stoi(value);
+		}
+
+		value = getConfigValue(line, "testing");
+		if(value != "")
+		{
+			if (value == "cube")
+			{
+				CUBE_TESTING = true;
+			}
+
+			if (value == "model")
+			{
+				MODEL_TESTING = true;
+			}
+		}
+	}
+
+	configFile.close();
+}
+
 int main()
 {
-	if (TESTING)
+	//Config Values
+	GLuint WIDTH = 512, HEIGHT = 384;
+	std::string modelPath = "";
+	int NUM_CUBES = 0;
+
+	loadConfig(&WIDTH, &HEIGHT, &modelPath, &NUM_CUBES);
+
+	if (CUBE_TESTING || MODEL_TESTING)
 	{
 		OUTPUT_FILE.open("output.csv");
 	}
-
-	//Window dimensions
-	const GLuint WIDTH = 512, HEIGHT = 384;
 
 	//Init GLFW
 	glfwInit();
@@ -299,7 +379,7 @@ int main()
 
 	//Set the required callback functions
 	glfwSetKeyCallback(window, key_callback);
-		
+
 	glfwShowWindow(window);
 
 	//Initialize GLEW
@@ -310,7 +390,7 @@ int main()
 		return -1;
 	}
 
-	Model model("obj_files/Sword/Sword OBJ.obj");
+	Model model(modelPath);
 	std::vector<Tri> modelTriangles = model.getModelTris();
 
 	//Define the viewport dimensions
@@ -339,18 +419,17 @@ int main()
 	GLuint lightPosUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "lightPos");
 	GLuint numCubesUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_CUBES");
 	GLuint numTriUniform = glGetUniformLocation(computeProgram.getShaderProgram(), "NUM_TRIANGLES");
-	int NUM_CUBES = 0;
-	
-	cube *cubes = new cube[1];
-	cubes = generateTestData(1);
 
-	if (TESTING)
+	cube *cubes = new cube[NUM_CUBES + 1];
+	cubes = generateCubeData(NUM_CUBES);
+
+	if (CUBE_TESTING)
 	{
 		NUM_CUBES = 1;
 		delete[] cubes;
-		cubes = generateTestData(NUM_CUBES);
+		cubes = generateCubeData(NUM_CUBES);
 	}
-	
+
 	//Setup Cube Shader Buffer
 	GLuint cubeShaderBuffer;
 	glGenBuffers(1, &cubeShaderBuffer);
@@ -373,12 +452,22 @@ int main()
 	GLuint triShaderBuffer;
 	glGenBuffers(1, &triShaderBuffer);
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triShaderBuffer);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Tri)*modelTriangles.size(), &modelTriangles[0], GL_STATIC_COPY);
+	if (modelTriangles.size() != 0)
+	{
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Tri)*modelTriangles.size(), &modelTriangles[0], GL_STATIC_COPY);
+	}
+	else
+	{
+		glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(Tri)*modelTriangles.size(), nullptr, GL_STATIC_COPY);
+	}
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, triShaderBuffer);
 	p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-	memcpy(p, &modelTriangles[0], sizeof(Tri)*modelTriangles.size());
+	if (modelTriangles.size() != 0)
+	{
+		memcpy(p, &modelTriangles[0], sizeof(Tri)*modelTriangles.size());
+	}
 	glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
 	blockIndex = glGetProgramResourceIndex(computeProgram.getShaderProgram(), GL_SHADER_STORAGE_BLOCK, "triangles");
@@ -421,7 +510,22 @@ int main()
 
 	//Output scene information to console
 	std::cout << "Resolution: Width=" << WIDTH << " Height=" << HEIGHT << std::endl;
-	std::cout << "Model polygon count: " << modelTriangles.size() << std::endl;
+
+	if (MODEL_TESTING)
+	{
+		std::cout << "TESTING MODE: MODEL" << std::endl;
+	}
+
+	if (CUBE_TESTING)
+	{
+		std::cout << "TESTING MODE: CUBE" << std::endl;
+	}
+
+	if (modelTriangles.size() > 0)
+	{
+		std::cout << "Model polygon count: " << modelTriangles.size() << std::endl;
+	}
+
 	
 	//Window loop
 	while (!glfwWindowShouldClose(window))
@@ -440,11 +544,11 @@ int main()
 			frameNum = 0;
 			totalDT = 0;
 			
-			if (TESTING)
+			if (CUBE_TESTING)
 			{
 				NUM_CUBES++;
 				delete[] cubes;
-				cubes = generateTestData(NUM_CUBES);
+				cubes = generateCubeData(NUM_CUBES);
 
 				glUseProgram(computeProgram.getShaderProgram());
 				glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
@@ -545,7 +649,7 @@ int main()
 	delete[] cubes;
 	modelTriangles.clear();
 
-	if (TESTING)
+	if (CUBE_TESTING || MODEL_TESTING)
 	{
 		OUTPUT_FILE.close();
 	}

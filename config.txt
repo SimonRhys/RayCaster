@@ -1,0 +1,5 @@
+width=800
+height=600
+modelPath=obj_files/Tree/lowpolytree.obj
+numCubes=0
+testing=mod
