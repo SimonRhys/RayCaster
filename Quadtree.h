@@ -259,20 +259,17 @@ void Quadtree<T>::subdivide()
 {
 	leaf = false;
 
-	glm::vec2 newCentre = glm::vec2(centre.x - 0.25 * size.x, centre.y + 0.25 * size.y);
+	glm::vec2 newCentre = glm::vec2(centre.x - 0.25 * size.x, centre.y - 0.25 * size.y);
 	glm::vec2 newSize = glm::vec2(size.x / 2, size.y / 2);
 	northWest = new Quadtree(newCentre, newSize);
 
-	newCentre = glm::vec2(centre.x + 0.25 * size.x, centre.y + 0.25 * size.y);
-	newSize = glm::vec2(size.x / 2, size.y / 2);
+	newCentre = glm::vec2(centre.x + 0.25 * size.x, centre.y - 0.25 * size.y);
 	northEast = new Quadtree(newCentre, newSize);
 
-	newCentre = glm::vec2(centre.x - 0.25 * size.x, centre.y - 0.25 * size.y);
-	newSize = glm::vec2(size.x / 2, size.y / 2);
+	newCentre = glm::vec2(centre.x - 0.25 * size.x, centre.y + 0.25 * size.y);
 	southWest = new Quadtree(newCentre, newSize);
 
-	newCentre = glm::vec2(centre.x + 0.25 * size.x, centre.y - 0.25 * size.y);
-	newSize = glm::vec2(size.x / 2, size.y / 2);
+	newCentre = glm::vec2(centre.x + 0.25 * size.x, centre.y + 0.25 * size.y);
 	southEast = new Quadtree(newCentre, newSize);
 
 	for (int i = 0; i < points.size(); i++)

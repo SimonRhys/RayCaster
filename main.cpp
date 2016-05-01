@@ -270,7 +270,7 @@ void printMatrix(glm::mat4 m)
 
 glm::vec3 getCubeCentre(cube c)
 {
-	glm::vec4 diff = c.cubeMax - c.cubeMin;
+	glm::vec4 diff = c.cubeMin+(c.cubeMax - c.cubeMin);
 	glm::vec3 result = glm::vec3(diff.x, diff.y, diff.z);
 
 	return result;
@@ -422,6 +422,15 @@ int main()
 
 	cube *cubes = new cube[NUM_CUBES + 1];
 	cubes = generateCubeData(NUM_CUBES);
+
+	Quadtree<cube> quad(glm::vec2(50, 50), glm::vec2(100, 100));
+	for (int i = 0; i < NUM_CUBES; i++)
+	{
+		glm::vec3 centre = getCubeCentre(cubes[i]);
+		quad.insert(cubes[i], glm::vec2(centre.x, centre.z));
+	}
+
+	std::vector<cube> vec = quad.search(glm::vec2(50, 50), glm::vec2(100, 100));
 
 	if (CUBE_TESTING)
 	{
