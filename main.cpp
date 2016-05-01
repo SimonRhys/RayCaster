@@ -293,7 +293,7 @@ std::string getConfigValue(std::string line, std::string config)
 	return line.substr(found + 1);
 }
 
-void loadConfig(GLuint *w, GLuint *h, std::string *modelPath, int *numCubes)
+void loadConfig(GLuint *w, GLuint *h, std::string *modelPath, int *numCubes, bool *useQuadtree)
 {
 	std::ifstream configFile;
 	configFile.open("config.txt");
@@ -343,6 +343,12 @@ void loadConfig(GLuint *w, GLuint *h, std::string *modelPath, int *numCubes)
 				MODEL_TESTING = true;
 			}
 		}
+
+		value = getConfigValue(line, "useQuadtree");
+		if (value == "true")
+		{
+			*useQuadtree = true;
+		}
 	}
 
 	configFile.close();
@@ -354,8 +360,9 @@ int main()
 	GLuint WIDTH = 512, HEIGHT = 384;
 	std::string modelPath = "";
 	int NUM_CUBES = 0;
+	bool useQuadtree = false;
 
-	loadConfig(&WIDTH, &HEIGHT, &modelPath, &NUM_CUBES);
+	loadConfig(&WIDTH, &HEIGHT, &modelPath, &NUM_CUBES, &useQuadtree);
 
 	if (CUBE_TESTING || MODEL_TESTING)
 	{
@@ -424,10 +431,13 @@ int main()
 	cubes = generateCubeData(NUM_CUBES);
 
 	Quadtree<cube> quad(glm::vec2(50, 50), glm::vec2(100, 100));
-	for (int i = 0; i < NUM_CUBES; i++)
+	if (!useQuadtree)
 	{
-		glm::vec3 centre = getCubeCentre(cubes[i]);
-		quad.insert(cubes[i], glm::vec2(centre.x, centre.z));
+		for (int i = 0; i < NUM_CUBES; i++)
+		{
+			glm::vec3 centre = getCubeCentre(cubes[i]);
+			quad.insert(cubes[i], glm::vec2(centre.x, centre.y));
+		}
 	}
 
 	std::vector<cube> vec = quad.search(glm::vec2(50, 50), glm::vec2(100, 100));
