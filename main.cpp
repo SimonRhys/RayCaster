@@ -270,7 +270,7 @@ void printMatrix(glm::mat4 m)
 
 glm::vec3 getCubeCentre(cube c)
 {
-	glm::vec4 diff = c.cubeMin+(c.cubeMax - c.cubeMin);
+	glm::vec4 diff = c.cubeMin+(c.cubeMax - c.cubeMin)*0.5f;
 	glm::vec3 result = glm::vec3(diff.x, diff.y, diff.z);
 
 	return result;
@@ -430,8 +430,15 @@ int main()
 	cube *cubes = new cube[NUM_CUBES + 1];
 	cubes = generateCubeData(NUM_CUBES);
 
+	if (CUBE_TESTING)
+	{
+		NUM_CUBES = 1;
+		delete[] cubes;
+		cubes = generateCubeData(NUM_CUBES);
+	}
+
 	Quadtree<cube> quad(glm::vec2(50, 50), glm::vec2(100, 100));
-	if (!useQuadtree)
+	if (useQuadtree)
 	{
 		for (int i = 0; i < NUM_CUBES; i++)
 		{
@@ -440,14 +447,6 @@ int main()
 		}
 	}
 
-	std::vector<cube> vec = quad.search(glm::vec2(50, 50), glm::vec2(100, 100));
-
-	if (CUBE_TESTING)
-	{
-		NUM_CUBES = 1;
-		delete[] cubes;
-		cubes = generateCubeData(NUM_CUBES);
-	}
 
 	//Setup Cube Shader Buffer
 	GLuint cubeShaderBuffer;
@@ -530,6 +529,11 @@ int main()
 	//Output scene information to console
 	std::cout << "Resolution: Width=" << WIDTH << " Height=" << HEIGHT << std::endl;
 
+	if (NUM_CUBES > 0)
+	{
+		std::cout << "Number of cubes: " << NUM_CUBES << std::endl;
+	}
+
 	if (MODEL_TESTING)
 	{
 		std::cout << "TESTING MODE: MODEL" << std::endl;
@@ -603,6 +607,8 @@ int main()
 
 		glm::mat4 inverseVP = glm::inverse(VP);
 		glm::vec4 eyeRay;
+		glm::vec2 topLeftCorner;
+		glm::vec2 botRightCorner;
 
 		glUseProgram(computeProgram.getShaderProgram());
 
@@ -611,6 +617,7 @@ int main()
 
 		eyeRay = calculateEyeRay(glm::vec4(-1, -1, 0, 1), camera, inverseVP);
 		glUniform3f(ray00Uniform, eyeRay.x, eyeRay.y, eyeRay.z);
+		topLeftCorner = glm::vec2(eyeRay.x, eyeRay.y);
 
 		eyeRay = calculateEyeRay(glm::vec4(-1, 1, 0, 1), camera, inverseVP);
 		glUniform3f(ray01Uniform, eyeRay.x, eyeRay.y, eyeRay.z);
@@ -620,8 +627,40 @@ int main()
 
 		eyeRay = calculateEyeRay(glm::vec4(1, 1, 0, 1), camera, inverseVP);
 		glUniform3f(ray11Uniform, eyeRay.x, eyeRay.y, eyeRay.z);
+		botRightCorner = glm::vec2(eyeRay.x, eyeRay.y);
 
 		glUniform3f(lightPosUniform, 5, 5, 5);
+
+		if (useQuadtree)
+		{
+			topLeftCorner = topLeftCorner*1000.f;
+			botRightCorner = botRightCorner*1000.f;
+
+			glm::vec2 diff = glm::abs(botRightCorner - topLeftCorner);
+			glm::vec2 mid = glm::min(topLeftCorner, botRightCorner) + (diff*0.5f);
+			std::vector<cube> vec = quad.search(glm::vec2(mid.x, mid.y), glm::vec2(diff.x, diff.y));
+
+			NUM_CUBES = vec.size();
+			GLvoid *data;
+
+			if (vec.size() == 0)
+			{
+				data = nullptr;
+			}
+			else
+			{
+				data = &vec[0];
+			}
+
+			glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
+			glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(cube)*NUM_CUBES, data, GL_STATIC_COPY);
+			glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+			glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
+			p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
+			memcpy(p, data, sizeof(cube)*NUM_CUBES);
+			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+		}
 
 		glUniform1i(numCubesUniform, NUM_CUBES);
 		glUniform1i(numTriUniform, modelTriangles.size());
