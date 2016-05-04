@@ -62,6 +62,11 @@ Quadtree<T>::Quadtree(glm::vec2 c, glm::vec2 s)
 template <typename T>
 bool Quadtree<T>::insert(T obj, glm::vec2 p)
 {
+	if (!inBoundry(p))
+	{
+		return false;
+	}
+
 	if (!leaf)
 	{
 		if (northWest->inBoundry(p))
@@ -84,7 +89,7 @@ bool Quadtree<T>::insert(T obj, glm::vec2 p)
 		return false;
 	}
 
-	if (points.size() < 4 && inBoundry(p))
+	if (points.size() < 4)
 	{
 		points.push_back(p);
 		objects.push_back(obj);

@@ -57,7 +57,7 @@ cube* generateCubeData(int numCubes)
 	{
 		for (int j = 0; j < nearestSqrt; j++)
 		{
-			cubes[count++] = { glm::vec4(5 + i*15, 0, 5 + j*15, 1), glm::vec4(10 + i*15, 5, 10 + j*15, 1) };
+			cubes[count++] = { glm::vec4(5 + i*15, 0 + j * 15, 5, 1), glm::vec4(10 + i*15, 5 + j * 15, 10, 1) };
 			if (count == numCubes)
 			{
 				return cubes;
@@ -432,7 +432,7 @@ int main()
 
 	if (CUBE_TESTING)
 	{
-		NUM_CUBES = 1;
+		NUM_CUBES = 100;
 		delete[] cubes;
 		cubes = generateCubeData(NUM_CUBES);
 	}
@@ -569,7 +569,7 @@ int main()
 			
 			if (CUBE_TESTING)
 			{
-				NUM_CUBES++;
+				NUM_CUBES+=100;
 				delete[] cubes;
 				cubes = generateCubeData(NUM_CUBES);
 
@@ -587,9 +587,23 @@ int main()
 				float fps = 1 / AVG_DT;
 				std::cout << NUM_CUBES << " cubes at " << fps << " fps" << std::endl;
 				OUTPUT_FILE << fps << ", " << NUM_CUBES << "\n";
-				if (fps <= 10)
+				if (fps <= 10 || NUM_CUBES > 10000)
 				{
 					glfwSetWindowShouldClose(window, 1);
+				}
+
+				if (useQuadtree)
+				{
+					cube firstCube = cubes[0];
+					cube lastCube = cubes[NUM_CUBES - 1];
+					glm::vec4 distance = lastCube.cubeMax - firstCube.cubeMin;
+					glm::vec4 centre = distance*0.5f;
+					quad = Quadtree<cube>(glm::vec2(centre.x, centre.y), glm::vec2(distance.x, distance.y));
+					for (int i = 0; i < NUM_CUBES; i++)
+					{
+						glm::vec3 centre = getCubeCentre(cubes[i]);
+						quad.insert(cubes[i], glm::vec2(centre.x, centre.y));
+					}
 				}
 			}
 		}
@@ -630,6 +644,8 @@ int main()
 		botRightCorner = glm::vec2(eyeRay.x, eyeRay.y);
 
 		glUniform3f(lightPosUniform, 5, 5, 5);
+		glUniform1i(numCubesUniform, NUM_CUBES);
+		glUniform1i(numTriUniform, modelTriangles.size());
 
 		if (useQuadtree)
 		{
@@ -640,7 +656,6 @@ int main()
 			glm::vec2 mid = glm::min(topLeftCorner, botRightCorner) + (diff*0.5f);
 			std::vector<cube> vec = quad.search(glm::vec2(mid.x, mid.y), glm::vec2(diff.x, diff.y));
 
-			NUM_CUBES = vec.size();
 			GLvoid *data;
 
 			if (vec.size() == 0)
@@ -653,17 +668,17 @@ int main()
 			}
 
 			glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
-			glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(cube)*NUM_CUBES, data, GL_STATIC_COPY);
+			glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(cube)*vec.size(), data, GL_STATIC_COPY);
 			glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
 			glBindBuffer(GL_SHADER_STORAGE_BUFFER, cubeShaderBuffer);
 			p = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_WRITE_ONLY);
-			memcpy(p, data, sizeof(cube)*NUM_CUBES);
+			memcpy(p, data, sizeof(cube)*vec.size());
 			glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+			glUniform1i(numCubesUniform, vec.size());
 		}
 
-		glUniform1i(numCubesUniform, NUM_CUBES);
-		glUniform1i(numTriUniform, modelTriangles.size());
+
 
 		//Bind framebuffer texture to image unit 0 as writable image in the shader.
 		glBindImageTexture(0, tex, 0, false, 0, GL_WRITE_ONLY, GL_RGBA32F);
