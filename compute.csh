@@ -41,7 +41,7 @@ layout(std430, binding = 3) buffer triangles {
 	Tri triData[];
 };
 
-float intersectTriOld(vec3 origin, vec3 dir, const Tri tri)
+float intersectTriOld(vec3 origin, vec3 dir, const Tri tri, out vec2 tex)
 {
     vec3 v0v1 = tri.v1 - tri.v0; 
     vec3 v0v2 = tri.v2 - tri.v0; 
@@ -51,37 +51,49 @@ float intersectTriOld(vec3 origin, vec3 dir, const Tri tri)
  
     float NdotRayDirection = dot(N,dir); 
     if (abs(NdotRayDirection) < 1e-8) // almost 0 
-        return false; // they are parallel so they don't intersect ! 
+        return -1; // they are parallel so they don't intersect ! 
  
-    float d = dot(N,v0); 
+    float d = dot(N,tri.v0); 
  
-    float t = (dot(N,orig) + d) / NdotRayDirection; 
+    float t = (dot(N,origin) + d) / NdotRayDirection; 
     // check if the triangle is in behind the ray
-    if (t < 0) return false; // the triangle is behind 
+    if (t < 0) return -1; // the triangle is behind 
  
-    vec3 P = orig + t * dir; 
+    vec3 P = origin + t * dir; 
 
     vec3 C; // vector perpendicular to triangle's plane 
  
     // edge 0
-    vec3 edge0 = tir.v1 - tri.v0; 
+    vec3 edge0 = tri.v1 - tri.v0; 
 	vec3 vp0 = P - tri.v0; 
     C = cross(edge0,vp0); 
-    if (dot(N,C) < 0) return false; // P is on the right side 
+    if (dot(N,C) < 0) return -1; // P is on the right side 
  
     // edge 1
-    Vec3f edge1 = tri.v2 - tri.v1; 
-    Vec3f vp1 = P - tri.v1; 
+    vec3 edge1 = tri.v2 - tri.v1; 
+    vec3 vp1 = P - tri.v1; 
     C = cross(edge1,vp1); 
-    if (dot(N,C) < 0)  return false; // P is on the right side 
+    if (dot(N,C) < 0)  return -1; // P is on the right side 
  
     // edge 2
-    Vec3f edge2 = tri.v0 - tri.v2; 
-    Vec3f vp2 = P - tri.v2; 
+	vec3 edge2 = tri.v0 - tri.v2; 
+    vec3 vp2 = P - tri.v2; 
     C = cross(edge2,vp2); 
-    if (dot(N,C) < 0) return false; // P is on the right side; 
+    if (dot(N,C) < 0) return -1; // P is on the right side; 
+
+	if(tri.tex0.x > 0)
+	{
+		vec3 temp = tri.tex0 + tri.tex1 + tri.tex2;
+		tex.x = temp.x;
+		tex.y = temp.y;
+	}
+	else
+	{
+		tex.x = -1;
+		tex.y = -1;
+	}
  
-    return true;
+    return t;
 }
 
 float intersectTri(vec3 origin, vec3 dir, const Tri tri, out vec2 tex)
@@ -265,7 +277,16 @@ vec4 trace(vec3 origin, vec3 dir)
 		{
 			//We don't have texture information so 
 			//paint object a nice shade of red
-			colour = colour * vec4(0.8, 0, 0, 1);
+			if(texSize.x > 0) 
+			{
+				colour = colour * vec4(0.8, 0, 0, 1);
+			}
+			else
+			{
+				colour = colour * vec4(0, 0.8, 0, 1);
+			}
+			
+			
 		}
 
 		return colour;
