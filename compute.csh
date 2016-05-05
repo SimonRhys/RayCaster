@@ -271,22 +271,15 @@ vec4 trace(vec3 origin, vec3 dir)
 		if(texCoord.x > 0 && texSize.x > 0)
 		{
 			ivec2 intTexCoord = ivec2(texSize.x * texCoord.x, texSize.y * texCoord.y);
-			colour = colour * imageLoad(modelTex, intTexCoord);
+			vec4 texel = imageLoad(modelTex, intTexCoord);
+			colour = colour * texel;
+
 		}
 		else
 		{
 			//We don't have texture information so 
 			//paint object a nice shade of red
-			if(texSize.x > 0) 
-			{
-				colour = colour * vec4(0.8, 0, 0, 1);
-			}
-			else
-			{
-				colour = colour * vec4(0, 0.8, 0, 1);
-			}
-			
-			
+			colour = colour * vec4(0.8, 0, 0, 1);
 		}
 
 		return colour;
